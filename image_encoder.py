@@ -22,6 +22,6 @@ class PatchEmbedding(nn.Module):
             # Flatten the image into a sequence of patches (H / patch_size) * (W / patch_size) = num_patches
             nn.Flatten(start_dim=2, end_dim=3) # (B, emb_size, H, W) -> (B, emb_size, num_patches)
         )
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.projection(x) # (B, C, H, W) -> (B, emb_size, num_patches)
         return x # (B, emb_size, num_patches)
