@@ -8,6 +8,13 @@ from typing import Tuple, List, Dict
 
 
 class PatchEmbedding(nn.Module):
+    '''
+        This function is responsible for creating patches of an image.
+        We efficiently handle this process through CNN's.
+        Using a kernel of patch size and similar stride we can generate x patches of an image.
+        Then as we want to convert/map each patch to an embedding of D dimentions.
+        We can do that by introducing D filters which generate D feature maps.
+    '''
     def __init__(self,
                  in_channels: int = 3,
                  patch_size: Tuple[int, int] = (16, 16),
