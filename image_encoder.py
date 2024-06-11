@@ -34,7 +34,7 @@ class PatchEmbedding(nn.Module):
         x = self.projection(x) # (B, C, H, W) -> (B, emb_size, num_patches_h, num_patches_w) 
         return x # (B, emb_size, num_patches_h, num_patches_w)
 
-class Attention(nn.Module):
+class CausalMultiHeadedAttention(nn.Module):
 
     """
         This function is responsible for calculating the attention scores.
