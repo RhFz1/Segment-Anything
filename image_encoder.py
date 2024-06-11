@@ -35,6 +35,14 @@ class PatchEmbedding(nn.Module):
         return x # (B, emb_size, num_patches_h, num_patches_w)
 
 class Attention(nn.Module):
+
+    """
+        This function is responsible for calculating the attention scores.
+        Here we are trying to implement the multi-head attention mechanism, which is the core of the transformer model.
+        Firstly we aggregate the Query, Key and Value into a single tensor.
+        Compute q,k,v in parallel. For all heads and we basically reshape them accordingly.
+        Then send them out through projection layers.
+    """
     def __init__(self, 
                  dim: int,
                  num_heads: int = 4,
@@ -53,5 +61,28 @@ class Attention(nn.Module):
         self.input_shape = input_shape
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        B, H, W, C = x.shape
+        B, H, W, _ = x.shape
+
+        # Here we are trying to implement the multi-head attention mechanism.
+        # The multiplier 3 corresponds to the Query, Key and Value.
+        # We know each head shall process (emb_size/num_heads) features.
+        # So we reshape the output of the linear layer to (B, H * W, 3, num_heads, head_dim)
+        # Then we permute the tensor to (3, B, num_heads, H * W, head_dim)
+        qkv = self.qkv(x).reshape(B, H * W, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
+
+        # here we are trying to separate the Query, Key and Value.
+        # Combining the Batch and number of heads dimension, gives us a gist of multi-head attention.
+        q, k, v = qkv.reshape(3, B * self.num_heads, H * W, self.head_dim).unbind(0) # (3, B * num_head, H * W, head_dim)
+
+        # Calculating the attention scores.
+        wei = (q * self.scale) @ (k.transpose(-2, -1)) # (B * num_head, H * W, head_dim) * (B * num_head, head_dim, H * W) -> (B * num_head, H * W, H * W)
+        wei = F.softmax(wei, dim=-1) # Normalizing the attention scores.
+        wei = self.att_drop(wei)
+
+        # Calculating the weighted sum of the values.
+        out = (wei @ v) # (B * num_head, H * W, H * W) * (B * num_head, H * W, head_dim) -> (B * num_head, H * W, head_dim)
+        out = out.view(B, self.num_heads, H, W, -1).permute(0, 2, 3, 1, 4) #(B, num_head, H, W, head_dim) -> (B, H, W, num_head, head_dim)
+        proj = self.projection(out.reshape(B, H * W, -1)) # (B, H * W, dim)
+        return proj
+
         
