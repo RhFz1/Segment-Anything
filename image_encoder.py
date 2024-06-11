@@ -3,7 +3,7 @@ import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 from dataclasses import dataclass
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Optional
 
 
 
@@ -33,7 +33,25 @@ class PatchEmbedding(nn.Module):
         # numpatches_w = (w - p)/s + 1
         x = self.projection(x) # (B, C, H, W) -> (B, emb_size, num_patches_h, num_patches_w) 
         return x # (B, emb_size, num_patches_h, num_patches_w)
-    
-class ImageEncoder(nn.Module):
-    def __init__(self):
-        pass
+
+class Attention(nn.Module):
+    def __init__(self, 
+                 dim: int,
+                 num_heads: int = 4,
+                 qkv_bias: bool = False,
+                 input_shape: Optional[Tuple[int , int]] = None) -> None:
+        super().__init__()
+
+
+        self.num_heads = num_heads # The number of heads in a single attention layer or the number of parallel attention layers. (Multi-Head Attention)
+        self.head_dim = dim // num_heads # The dimension of each head it is the split of what each head will see.
+        self.scale = self.head_dim ** -0.5 # The scaling factor for the dot product attention. Refer to the paper for more details.
+
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias) # The linear layer for the Query, Key and Value, all combined into one. Will be separated later.
+        self.att_drop = nn.Dropout(0.1)
+        self.projection = nn.Linear(dim, dim)
+        self.input_shape = input_shape
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, H, W, C = x.shape
+        
