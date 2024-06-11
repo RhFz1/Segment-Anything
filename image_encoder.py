@@ -47,6 +47,8 @@ class Attention(nn.Module):
                  dim: int,
                  num_heads: int = 4,
                  qkv_bias: bool = False,
+                 use_rel_pos: bool = False,
+                 rel_pos_zero_init: bool = True,
                  input_shape: Optional[Tuple[int , int]] = None) -> None:
         super().__init__()
 
