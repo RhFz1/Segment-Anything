@@ -26,9 +26,14 @@ class PatchEmbedding(nn.Module):
         self.projection = nn.Sequential(
             # Break the image into patches
             nn.Conv2d(in_channels, emb_size, stride=stride, padding=padding, kernel_size=patch_size, stride=patch_size), # (B, C, H, W) -> (B, emb_size, (h - p)/s + 1, (w - p)/s + 1)
-            # Flatten the image into a sequence of patches (H / patch_size) * (W / patch_size) = num_patches
-            nn.Flatten(start_dim=2, end_dim=3) # (B, emb_size, H, W) -> (B, emb_size, num_patches)
         )
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.projection(x) # (B, C, H, W) -> (B, emb_size, num_patches)
-        return x # (B, emb_size, num_patches)
+        # num_patches = (h - p)/s + 1 * (w - p)/s + 1
+        # numpatches_h = (h - p)/s + 1
+        # numpatches_w = (w - p)/s + 1
+        x = self.projection(x) # (B, C, H, W) -> (B, emb_size, num_patches_h, num_patches_w) 
+        return x # (B, emb_size, num_patches_h, num_patches_w)
+    
+class ImageEncoder(nn.Module):
+    def __init__(self):
+        pass
