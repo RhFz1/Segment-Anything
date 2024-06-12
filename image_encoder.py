@@ -111,3 +111,8 @@ class TransformerBlock(nn.Module):
         x = self.norm1(x) # Normalizing the input. As per paper
 
         x = self.attn(x) # Applying the attention mechanism. (B, H, W, dim)
+
+        x = x + skip_fwd # Adding the residual connection. (B, H, W, dim) as per paper
+        x = self.mlp(self.norm2(x)) # Applying the feed forward network. (B, H, W, dim) for giving time to the model to actually learn
+
+        return x # (B, H, W, dim)
