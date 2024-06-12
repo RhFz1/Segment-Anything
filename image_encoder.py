@@ -90,6 +90,11 @@ class CausalMultiHeadedAttention(nn.Module):
         return proj
 
 class TransformerBlock(nn.Module):
+    """
+        Here this block is the combination of all the components of the transformer model.
+        It contains the normalization, followed by attention, then again normalization and then the feed forward network.
+        Still have to implement the positional embedding modules, to ensure each token is aware of its position and relative position wrto others.
+    """
 
     def __init__(self,
                  dim: int = 768,
