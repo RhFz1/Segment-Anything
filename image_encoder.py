@@ -101,12 +101,18 @@ class TransformerBlock(nn.Module):
                  input_shape: Optional[Tuple[int, int]] = None
                  ) -> None:
         super().__init__()
-        self.norm1 = norm_layer(dim)
-        self.attn = CausalMultiHeadedAttention(dim, num_heads, qkv_bias=qkv_bias, input_shape=input_shape)
-        self.norm2 = norm_layer(dim)
-        self.mlp = FeedFwd(dim, int(dim * mlp_ratio), act_layer)
+        self.norm1 = norm_layer(dim) # Layer Normalization for ensuring the model is robust to the scale of the input.
+        self.attn = CausalMultiHeadedAttention(dim, num_heads, qkv_bias=qkv_bias, input_shape=input_shape) # The attention mechanism.
+        self.norm2 = norm_layer(dim) # Normalization layer for the output of the attention mechanism.
+        self.mlp = FeedFwd(dim, int(dim * mlp_ratio), act_layer) # The feed forward network.
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+
+        # Here we keep a copy of the input for the residual connection.
+        # Then as per paper we first normalize the input x.
+        # Then we apply the attention mechanism, where in the model shall learn the sequential dependencies.
+        # Then we add the residual connection, followeed by the feed forward network.
+
         skip_fwd = x # Storing the input for residual connection. (B, H, W, dim)
         x = self.norm1(x) # Normalizing the input. As per paper
 
