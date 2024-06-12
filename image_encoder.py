@@ -22,17 +22,19 @@ class PatchEmbedding(nn.Module):
                  padding: Tuple[int, int] = (0, 0),
                  emb_size: int = 768, 
                  img_size: Tuple[int, int] = (224, 224)) -> None:
+        super().__init__()
         self.patch_size = patch_size
         self.projection = nn.Sequential(
             # Break the image into patches
-            nn.Conv2d(in_channels, emb_size, stride=stride, padding=padding, kernel_size=patch_size, stride=patch_size), # (B, C, H, W) -> (B, emb_size, (h - p)/s + 1, (w - p)/s + 1)
+            nn.Conv2d(in_channels, emb_size, stride=stride, padding=padding, kernel_size=patch_size), # (B, C, H, W) -> (B, emb_size, (h - p)/s + 1, (w - p)/s + 1)
         )
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # num_patches = (h - p)/s + 1 * (w - p)/s + 1
         # numpatches_h = (h - p)/s + 1
         # numpatches_w = (w - p)/s + 1
         x = self.projection(x) # (B, C, H, W) -> (B, emb_size, num_patches_h, num_patches_w) 
-        return x # (B, emb_size, num_patches_h, num_patches_w)
+        x = x.permute(0, 2, 3, 1) # (B, num_patches_h, num_patches_w, emb_size)
+        return x # (B, num_patches_h, num_patches_w, emb_size)
 
 class CausalMultiHeadedAttention(nn.Module):
 
@@ -86,5 +88,3 @@ class CausalMultiHeadedAttention(nn.Module):
         out = out.view(B, self.num_heads, H, W, -1).permute(0, 2, 3, 1, 4) #(B, num_head, H, W, head_dim) -> (B, H, W, num_head, head_dim)
         proj = self.projection(out.reshape(B, H * W, -1)) # (B, H * W, dim)
         return proj
-
-        
