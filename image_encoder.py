@@ -2,6 +2,7 @@ import torch
 import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
+from common import FeedFwd
 from dataclasses import dataclass
 from typing import Tuple, List, Dict, Optional
 
@@ -37,7 +38,6 @@ class PatchEmbedding(nn.Module):
         return x # (B, num_patches_h, num_patches_w, emb_size)
 
 class CausalMultiHeadedAttention(nn.Module):
-
     """
         This function is responsible for calculating the attention scores.
         Here we are trying to implement the multi-head attention mechanism, which is the core of the transformer model.
@@ -86,5 +86,28 @@ class CausalMultiHeadedAttention(nn.Module):
         # Calculating the weighted sum of the values.
         out = (wei @ v) # (B * num_head, H * W, H * W) * (B * num_head, H * W, head_dim) -> (B * num_head, H * W, head_dim)
         out = out.view(B, self.num_heads, H, W, -1).permute(0, 2, 3, 1, 4) #(B, num_head, H, W, head_dim) -> (B, H, W, num_head, head_dim)
-        proj = self.projection(out.reshape(B, H * W, -1)) # (B, H * W, dim)
+        proj = self.projection(out.reshape(B, H , W, -1)) # (B, H, W, dim)
         return proj
+
+class TransformerBlock(nn.Module):
+
+    def __init__(self,
+                 dim: int = 768,
+                 num_heads: int = 4,
+                 mlp_ratio: float = 4.0,
+                 qkv_bias: bool = False,
+                 norm_layer: nn.Module = nn.LayerNorm,
+                 act_layer: nn.Module = nn.GELU,
+                 input_shape: Optional[Tuple[int, int]] = None
+                 ) -> None:
+        super().__init__()
+        self.norm1 = norm_layer(dim)
+        self.attn = CausalMultiHeadedAttention(dim, num_heads, qkv_bias=qkv_bias, input_shape=input_shape)
+        self.norm2 = norm_layer(dim)
+        self.mlp = FeedFwd(dim, int(dim * mlp_ratio), act_layer)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        skip_fwd = x # Storing the input for residual connection. (B, H, W, dim)
+        x = self.norm1(x) # Normalizing the input. As per paper
+
+        x = self.attn(x) # Applying the attention mechanism. (B, H, W, dim)
