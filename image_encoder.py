@@ -126,4 +126,32 @@ class TransformerBlock(nn.Module):
         x = x + skip_fwd # Adding the residual connection. (B, H, W, dim) as per paper
         x = self.mlp(self.norm2(x)) # Applying the feed forward network. (B, H, W, dim) for giving time to the model to actually learn
 
-        return x # (B, H, W, dim)
+        return x # (B, H, W, dim)   
+    
+
+# Still do not understand the motivation behind the window partition.
+# Will try to explain here when understood the justification of use.
+
+def window_partition(x: torch.Tensor, window_size: int) -> Tuple[torch.Tensor, Tuple[int, int]]:
+    """
+        This function is responsible for partitioning the image into windows.
+        We are trying to break the image into windows of size window_size.
+        The image is broken into windows of size window_size x window_size.
+    """
+    B, H, W, C = x.shape
+    
+
+    pad_h = (window_size - H % window_size) % window_size # Padding the height of the image.
+    pad_w = (window_size - W % window_size) % window_size # Padding the width of the image.
+
+    if pad_h > 0 or pad_w > 0:
+        x = F.pad(x, (0, 0 , 0, pad_w, 0, pad_h), value=0) # Padding the image.
+    
+    Hn, Wn = H + pad_h, W + pad_w # New height and width of the image.
+    x = x.view(B, Hn // window_size,window_size ,Wn // window_size,window_size,C)
+    x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C) # (B * Hn//window_size * Wn//window_size, window_size, window_size, C)
+    
+    return x, (Hn, Wn)
+
+def window_unpartition(x: torch.Tensor, window_size: int, pad_hw: Tuple[int, int], hw: Tuple[int, int]) -> torch.Tensor:
+    pass
