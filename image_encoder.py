@@ -174,6 +174,10 @@ def window_unpartition(x: torch.Tensor, window_size: int, pad_hw: Tuple[int, int
 
 def get_rel_pos(q_size: int, k_size: int, rel_pos: torch.Tensor) -> torch.Tensor:
 
+    """
+        This function gives out the relative position of the query and key to ensure attention is not disturbed.
+        When the image contents are displaced and patch contents are different altogether.
+    """
     max_rel_dist = int(2 * max(q_size, k_size) - 1)
     # Interpolate rel pos if needed.
     if rel_pos.shape[0] != max_rel_dist:
