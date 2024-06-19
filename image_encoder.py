@@ -154,4 +154,20 @@ def window_partition(x: torch.Tensor, window_size: int) -> Tuple[torch.Tensor, T
     return x, (Hn, Wn)
 
 def window_unpartition(x: torch.Tensor, window_size: int, pad_hw: Tuple[int, int], hw: Tuple[int, int]) -> torch.Tensor:
-    pass
+    """
+        This function is responsible for unpartitioning the image into windows.
+        This function is the inverse of the window_partition function.
+    """
+    Hn, Wn = pad_hw[0], pad_hw[1]
+    H, W = hw[0], hw[1]
+
+    # Computing the batch size.
+    B = x.shape[0] // (Hn * Wn // window_size ** 2)
+
+    x = x.view(B, Hn // window_size, Wn// window_size, window_size, window_size, -1)
+    x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, Hn, Wn, -1)
+
+    if Hn > H or Wn > W:
+        x = x[:, :H, :W, :]
+    
+    return x
