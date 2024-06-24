@@ -4,10 +4,87 @@ import torch.nn as nn
 import torch.nn.functional as F
 from common import FeedFwd
 from dataclasses import dataclass
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List, Dict, Optional, Type
 
 
+class ImageEncoder(nn.Module):
 
+    def __init__(self,
+                 img_size: int = 1024,
+                 patch_size: int = 16, 
+                 emb_size: int = 768,
+                 in_channels: int = 3,
+                 num_layers: int = 12,
+                 num_heads: int = 12,
+                 mlp_ratio: float = 4.0,
+                 out_chans: int = 256,
+                 qkv_bias: bool = False,
+                 norm_layer: Type[nn.Module] = nn.LayerNorm,
+                 act_layer: Type[nn.Module] = nn.GELU,
+                 use_abs_pos: bool = True,
+                 use_rel_pos: bool = False,
+                 rel_pos_zero_init: bool = True,
+                 window_size: int = 0,
+            ) -> None:
+        super().__init__()
+
+        self.img_size = img_size
+
+        self.patch_embd = PatchEmbedding(
+            in_channels=in_channels,
+            patch_size=(patch_size, patch_size),
+            stride=(patch_size, patch_size),
+            emb_size=emb_size,
+            img_size=(img_size, img_size)
+        )
+
+        self.pos_embd: Optional[nn.Parameter] = None
+
+        if use_abs_pos:
+            self.pos_embd = nn.Parameter(
+                torch.zeros(1, img_size // patch_size, img_size // patch_size, emb_size) # (1, H, W, emb_size)
+            )
+        
+        self.blocks = nn.ModuleList()
+
+        for _ in range(num_layers):
+            self.blocks.append(
+                TransformerBlock(
+                    dim=emb_size,
+                    num_heads=num_heads,
+                    mlp_ratio=mlp_ratio,
+                    qkv_bias=qkv_bias,
+                    norm_layer=norm_layer,
+                    act_layer=act_layer
+                )
+            )
+        
+        # Here this block is the neck of the image encoder.
+        # We try to take the output of the transformer block and then pass it through a series of convolutional layers.
+        # This is done to ensure the model is robust to the spatial information.
+        # (B, H, W, emb_size) -> (B, H, W, out_chans) 
+        # H = (h + 2p - k)/s + 1, W = (w + 2p - k)/s + 1
+        
+        self.neck = nn.Sequential(
+            nn.Conv2d(emb_size, out_chans, kernel_size=1), # Here conv. operation is used to reduce the number of channels.
+            nn.LayerNorm(out_chans),
+            nn.Conv2d(out_chans, out_chans, kernel_size=3, padding=1, bias=False), # Based on the paper, we use 3x3 kernel size and padding of 1. Which retains the map shapes.
+            nn.LayerNorm(out_chans)
+        )
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.patch_embd(x) # Conversion of image to patches. (B, H, W, C) -> (B, num_patches_h, num_patches_w, emb_size)
+
+        # Paper explains the use of relative position embeddings. To preserve the relative positioning of patch content.
+        if self.pos_embd is not None:
+            x = x + self.pos_embd
+        
+        # Passing the patches through the transformer blocks.
+        for block in self.blocks:
+            x = block(x)
+
+        # Permuting here as torch expects the input to be in the format of (B, C, H, W)
+        x = self.neck(x.permute(0, 3, 1, 2)) # (B, num_patches_h, num_patches_w, emb_size) -> (B, out_chans, num_patches_h, num_patches_w)
 class PatchEmbedding(nn.Module):
     '''
         This function is responsible for creating patches of an image.
@@ -15,6 +92,8 @@ class PatchEmbedding(nn.Module):
         Using a kernel of patch size and similar stride we can generate x patches of an image.
         Then as we want to convert/map each patch to an embedding of D dimentions.
         We can do that by introducing D filters which generate D feature maps.
+        Each pixel of the feature map is the embedding of the corresponding patch, i.e., if we have a 64x64 map
+        Then each pixel of the feature map is the embedding of the corresponding 16x16 patch.
     '''
     def __init__(self,
                  in_channels: int = 3,
@@ -75,7 +154,7 @@ class CausalMultiHeadedAttention(nn.Module):
         qkv = self.qkv(x).reshape(B, H * W, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
 
         # here we are trying to separate the Query, Key and Value.
-        # Combining the Batch and number of heads dimension, gives us a gist of multi-head attention.
+        # Combining the Batch and number of heads dimension, gives us a gist of multi-heemb_sizead attention.
         q, k, v = qkv.reshape(3, B * self.num_heads, H * W, self.head_dim).unbind(0) # (3, B * num_head, H * W, head_dim)
 
         # Calculating the attention scores.
