@@ -85,6 +85,8 @@ class ImageEncoder(nn.Module):
 
         # Permuting here as torch expects the input to be in the format of (B, C, H, W)
         x = self.neck(x.permute(0, 3, 1, 2)) # (B, num_patches_h, num_patches_w, emb_size) -> (B, out_chans, num_patches_h, num_patches_w)
+
+        return x
 class PatchEmbedding(nn.Module):
     '''
         This function is responsible for creating patches of an image.
