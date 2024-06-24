@@ -2,19 +2,25 @@ import torch
 import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
-from common import FeedFwd
+from common import FeedFwd, LayerNorm2d
 from dataclasses import dataclass
 from typing import Tuple, List, Dict, Optional, Type
 
 
 class ImageEncoder(nn.Module):
 
+    """
+        Here we are trying to implement the image encoder.
+        Its just a block which holds the PatchEmbedding, TransformerBlock(xn) and the neck.
+        There isnt much to explain here, as the code is self-explanatory.
+    """
+
     def __init__(self,
                  img_size: int = 1024,
                  patch_size: int = 16, 
                  emb_size: int = 768,
                  in_channels: int = 3,
-                 num_layers: int = 12,
+                 num_layers: int = 4,
                  num_heads: int = 12,
                  mlp_ratio: float = 4.0,
                  out_chans: int = 256,
@@ -67,9 +73,9 @@ class ImageEncoder(nn.Module):
         
         self.neck = nn.Sequential(
             nn.Conv2d(emb_size, out_chans, kernel_size=1), # Here conv. operation is used to reduce the number of channels.
-            nn.LayerNorm(out_chans),
+            LayerNorm2d(),
             nn.Conv2d(out_chans, out_chans, kernel_size=3, padding=1, bias=False), # Based on the paper, we use 3x3 kernel size and padding of 1. Which retains the map shapes.
-            nn.LayerNorm(out_chans)
+            LayerNorm2d(),
         )
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -103,7 +109,7 @@ class PatchEmbedding(nn.Module):
                  stride: Tuple[int, int] = (16, 16),
                  padding: Tuple[int, int] = (0, 0),
                  emb_size: int = 768, 
-                 img_size: Tuple[int, int] = (224, 224)) -> None:
+                 img_size: Tuple[int, int] = (1024, 1024)) -> None:
         super().__init__()
         self.patch_size = patch_size
         self.projection = nn.Sequential(
